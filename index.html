@@ -1072,6 +1072,37 @@
         </div>
     </div>
 
+<!-- Update Payment Modal -->
+<div id="update-payment-modal" class="modal">
+  <div class="modal-content">
+    <span class="close-btn" onclick="document.getElementById('update-payment-modal').style.display='none'">&times;</span>
+    <h2>Update Payment</h2>
+
+    <div class="form-group">
+      <label for="update-invoice-no">Invoice No.</label>
+      <input type="text" id="update-invoice-no" readonly>
+    </div>
+
+    <div class="form-group">
+      <label for="update-total-amount">Total Amount</label>
+      <input type="number" id="update-total-amount" readonly>
+    </div>
+
+    <div class="form-group">
+      <label for="update-paid-amount">Paid Amount</label>
+      <input type="number" id="update-paid-amount" min="0">
+    </div>
+
+    <div class="form-group">
+      <label for="update-balance">Balance</label>
+      <input type="number" id="update-balance" readonly>
+    </div>
+
+    <button class="btn-success" onclick="processUpdatePayment()">Save Payment</button>
+  </div>
+</div>
+
+
 	<div id="ad-modal" class="modal" style="background: rgba(0,0,0,0.9);">
   <div class="modal-content" 
        style="width:100%; height:100%; max-width:none; border-radius:0; 
@@ -1574,6 +1605,52 @@ const prevAdImage = () => {
             renderLowStockList();
         };
 
+let selectedInvoiceForPayment = null;
+
+function updatePayment(invoiceNo) {
+  const inv = invoices.find(i => i.invoiceNo === invoiceNo);
+  if (!inv) {
+    showAlert("Invoice not found!", "danger");
+    return;
+  }
+
+  selectedInvoiceForPayment = inv;
+
+  document.getElementById("update-invoice-no").value = inv.invoiceNo;
+  document.getElementById("update-total-amount").value = inv.total.toFixed(2);
+  document.getElementById("update-paid-amount").value = inv.paid || 0;
+  document.getElementById("update-balance").value = inv.balance || (inv.total - (inv.paid || 0));
+
+  document.getElementById("update-payment-modal").style.display = "flex";
+}
+
+function processUpdatePayment() {
+  if (!selectedInvoiceForPayment) return;
+
+  const paidAmount = parseFloat(document.getElementById("update-paid-amount").value) || 0;
+  const total = selectedInvoiceForPayment.total;
+
+  selectedInvoiceForPayment.paid = paidAmount;
+  selectedInvoiceForPayment.balance = total - paidAmount;
+
+  if (paidAmount === 0) {
+    selectedInvoiceForPayment.status = "Not Paid";
+  } else if (paidAmount < total) {
+    selectedInvoiceForPayment.status = "Partially Paid";
+  } else {
+    selectedInvoiceForPayment.status = "Paid";
+    selectedInvoiceForPayment.balance = 0;
+  }
+
+  saveData();
+  renderSalesTable();
+  updateDashboard();
+
+  showAlert("Payment updated successfully!", "success");
+  document.getElementById("update-payment-modal").style.display = "none";
+}
+
+
         const renderLowStockList = () => {
             const lowStockItems = stocks.filter(item => item.quantity <= lowStockThreshold);
             const listContainer = document.getElementById('low-stock-list-container');
@@ -1909,120 +1986,141 @@ function printInvoiceBill(invoiceNo) {
         };
 
         const setupInvoiceListeners = () => {
-            const codeInput = document.getElementById('item-stock-code');
-            const qtyInput = document.getElementById('item-quantity');
-            const paymentStatusSelect = document.getElementById('payment-status');
-            const discountInput = document.getElementById('discount');
-            const gstCheckbox = document.getElementById('gst-checkbox');
-            const savePrintBtn = document.getElementById('save-print-btn');
-            const addItemBtn = document.getElementById('add-item-btn');
+    const codeInput = document.getElementById('item-stock-code');
+    const qtyInput = document.getElementById('item-quantity');
+    const paymentStatusSelect = document.getElementById('payment-status');
+    const discountInput = document.getElementById('discount');
+    const gstCheckbox = document.getElementById('gst-checkbox');
+    const savePrintBtn = document.getElementById('save-print-btn');
+    const addItemBtn = document.getElementById('add-item-btn');
 
-            // Autocomplete stock name and price
-            codeInput.addEventListener('keydown', (e) => {
-                if (e.key === "Enter" || e.key === "Tab") {
-                    e.preventDefault();
-                    document.getElementById('item-quantity').focus();
-                }
+    // Autocomplete stock name and price
+    codeInput.addEventListener('keydown', (e) => {
+        if (e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            document.getElementById('item-quantity').focus();
+        }
+    });
+
+    codeInput.addEventListener('input', () => {
+        const stock = stocks.find(s => s.id === codeInput.value.toUpperCase());
+        if (stock) {
+            document.getElementById('item-stock-name').value = stock.name;
+            document.getElementById('item-price').value = stock.price;
+            document.getElementById('available-stock').textContent = stock.quantity;
+        } else {
+            document.getElementById('paid-amount').required = false;
+            document.getElementById('item-stock-name').value = '';
+            document.getElementById('item-price').value = '';
+            document.getElementById('available-stock').textContent = '0';
+        }
+    });
+
+    // Add item to invoice
+    addItemBtn.addEventListener('click', () => {
+        const id = codeInput.value.toUpperCase();
+        const stock = stocks.find(s => s.id === id);
+        const quantity = parseInt(qtyInput.value);
+
+        if (!stock) {
+            showAlert('Invalid stock code.', 'danger');
+            return;
+        }
+        if (!quantity || quantity <= 0) {
+            showAlert('Please enter a valid quantity.', 'danger');
+            return;
+        }
+        if (quantity > stock.quantity) {
+            showAlert(`Not enough stock. Available: ${stock.quantity}`, 'danger');
+            return;
+        }
+
+        const existingItemIndex = currentInvoiceItems.findIndex(item => item.id === id);
+        if (existingItemIndex > -1) {
+            const newQty = currentInvoiceItems[existingItemIndex].quantity + quantity;
+            if (newQty > stock.quantity + currentInvoiceItems[existingItemIndex].quantity) {
+                showAlert(`Cannot add more. Exceeds available stock.`, 'danger');
+                return;
+            }
+            currentInvoiceItems[existingItemIndex].quantity = newQty;
+            currentInvoiceItems[existingItemIndex].total = newQty * stock.price;
+        } else {
+            document.getElementById('paid-amount').required = false;
+            currentInvoiceItems.push({
+                id,
+                name: stock.name,
+                quantity,
+                unitPrice: stock.price,
+                total: quantity * stock.price
             });
-            codeInput.addEventListener('input', () => {
-                const stock = stocks.find(s => s.id === codeInput.value.toUpperCase());
-                if (stock) {
-                    document.getElementById('item-stock-name').value = stock.name;
-                    document.getElementById('item-price').value = stock.price;
-                    document.getElementById('available-stock').textContent = stock.quantity;
-                } else {
-                    document.getElementById('paid-amount').required = false;
-                    document.getElementById('item-stock-name').value = '';
-                    document.getElementById('item-price').value = '';
-                    document.getElementById('available-stock').textContent = '0';
-                }
-            });
+        }
 
-            // Add item to invoice
-            addItemBtn.addEventListener('click', () => {
-                const id = codeInput.value.toUpperCase();
-                const stock = stocks.find(s => s.id === id);
-                const quantity = parseInt(qtyInput.value);
+        // Deduct from stock
+        stock.quantity -= quantity;
+        saveData();
+        renderStockTable();
+        renderInvoiceItemsTable();
+        updateInvoiceTotal();
+        clearItemInputs();
+    });
 
-                if (!stock) {
-                    showAlert('Invalid stock code.', 'danger');
-                    return;
-                }
-                if (!quantity || quantity <= 0) {
-                    showAlert('Please enter a valid quantity.', 'danger');
-                    return;
-                }
-                if (quantity > stock.quantity) {
-                    showAlert(`Not enough stock. Available: ${stock.quantity}`, 'danger');
-                    return;
-                }
+    // Update total on discount or GST change
+    discountInput.addEventListener('input', updateInvoiceTotal);
+    gstCheckbox.addEventListener('change', updateInvoiceTotal);
 
-                const existingItemIndex = currentInvoiceItems.findIndex(item => item.id === id);
-                if (existingItemIndex > -1) {
-                    const newQty = currentInvoiceItems[existingItemIndex].quantity + quantity;
-                    if (newQty > stock.quantity + currentInvoiceItems[existingItemIndex].quantity) {
-                        showAlert(`Cannot add more. Exceeds available stock.`, 'danger');
-                        return;
-                    }
-                    currentInvoiceItems[existingItemIndex].quantity = newQty;
-                    currentInvoiceItems[existingItemIndex].total = newQty * stock.price;
-                } else {
-                    document.getElementById('paid-amount').required = false;
-                    currentInvoiceItems.push({
-                        id,
-                        name: stock.name,
-                        quantity,
-                        unitPrice: stock.price,
-                        total: quantity * stock.price
-                    });
-                }
+    // Payment status changes
+    paymentStatusSelect.addEventListener('change', (e) => {
+        const row = document.getElementById('paid-balance-row');
+        if (e.target.value === 'Partially Paid' || e.target.value === 'Not Paid') {
+            document.getElementById('paid-amount').required = true;
+            row.style.display = 'flex';
+        } else {
+            document.getElementById('paid-amount').required = false;
+            row.style.display = 'none';
+        }
+        updatePaidBalance();
+    });
 
-                // Deduct from stock
-                stock.quantity -= quantity;
-                saveData();
-                renderStockTable();
-                renderInvoiceItemsTable();
-                updateInvoiceTotal();
-                clearItemInputs();
-            });
+    document.getElementById('paid-amount').addEventListener('input', updatePaidBalance);
 
-            // Update total on discount change
-            discountInput.addEventListener('input', updateInvoiceTotal);
-            gstCheckbox.addEventListener('change', updateInvoiceTotal);
-            paymentStatusSelect.addEventListener('change', (e) => {
-                const row = document.getElementById('paid-balance-row');
-                if (e.target.value === 'Partially Paid' || e.target.value === 'Not Paid') {
-                    document.getElementById('paid-amount').required = true;
-                    row.style.display = 'flex';
-                } else {
-                    document.getElementById('paid-amount').required = false;
-                    row.style.display = 'none';
-                }
-                updatePaidBalance();
-            });
-            document.getElementById('paid-amount').addEventListener('input', updatePaidBalance);
+    // Save and Print Invoice — **This is the corrected event listener**
+    savePrintBtn.addEventListener('click', () => {
+        const paymentMode = document.getElementById('payment-mode').value;
+        
+        if (paymentMode.toLowerCase() === 'online') {
+            showLoader();
+            setTimeout(() => {
+                hideLoader();
+                saveAndPrintInvoice();
+            }, 0);
+        } else {
+            saveAndPrintInvoice();
+        }
+    });
+};
 
-            // Save and Print
-            savePrintBtn.addEventListener('click', saveAndPrintInvoice);
-        };
 
         const updatePaidBalance = () => {
-            const total = parseFloat(document.getElementById('total-amount').value.replace('₹', ''));
-            const paid = parseFloat(document.getElementById('paid-amount').value);
-            const status = document.getElementById('payment-status').value;
+    const total = parseFloat(document.getElementById('total-amount').value.replace('₹', '')) || 0;
+    const paid = parseFloat(document.getElementById('paid-amount').value) || 0;
+    const status = document.getElementById('payment-status').value;
 
-            if (status === 'Partially Paid' && paid >= total) {
-                showAlert('Paid amount cannot be greater than or equal to total for partial payment.', 'danger');
-                document.getElementById('paid-amount').value = '';
-            } else if (status === 'Not Paid') {
-                document.getElementById('paid-amount').value = 0;
-            } else if (status === 'Full Paid') {
-                document.getElementById('paid-amount').value = total;
-            }
+    if (status === 'Partially Paid' && paid >= total) {
+        showAlert('Paid amount cannot be greater than or equal to total for partial payment.', 'danger');
+        document.getElementById('paid-amount').value = '';
+        return; // stop further calculation
+    } else if (status === 'Full Paid') {
+        document.getElementById('paid-amount').value = total.toFixed(2);
+    } else if (status === 'Not Paid') {
+        document.getElementById('paid-amount').value = 0;
+    }
 
-            const balance = total - (paid || 0);
-            document.getElementById('balance-amount').value = balance.toFixed(2);
-        };
+    const finalPaid = parseFloat(document.getElementById('paid-amount').value) || 0;
+    const balance = total - finalPaid;
+
+    document.getElementById('balance-amount').value = balance.toFixed(2);
+};
+
 
         const renderInvoiceItemsTable = () => {
             const tbody = document.querySelector('#invoice-items-table tbody');
@@ -2132,7 +2230,7 @@ function printInvoiceBill(invoiceNo) {
             }
 
             // Validate Paid Amount when required
-            if (invoiceData.status === "Partially Paid" || invoiceData.status === "Not Paid") {
+            if (invoiceData.status === "Partially Paid" || invoiceData.status === "") {
                 if (!invoiceData.paid || invoiceData.paid <= 0) {
                     showAlert("Please enter a valid Paid Amount.", "danger");
                     return;
@@ -2269,8 +2367,8 @@ const renderSalesTable = () => {
             <td>${inv.status}</td>
             <td>
                 <button class="btn-primary" onclick="showReturnModal('${inv.invoiceNo}')">Return</button>
-                <button class="btn-secondary" onclick="viewInvoice('${inv.invoiceNo}')">View</button>
                 <button class="btn-success" onclick="printInvoiceBill('${inv.invoiceNo}')">🖨 Print</button>
+		<button class="btn-primary" onclick="updatePayment('${inv.invoiceNo}')">Update</button>
             </td>
         `;
         salesTableBody.appendChild(row);
