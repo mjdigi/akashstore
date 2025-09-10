@@ -693,6 +693,118 @@
                 </button>
             </nav>
         </header>
+	<div class="ad-panel-horizontal">
+    <div class="ad-slider-full-width"></div>
+</div>
+
+<style>
+/* Full-width ad slider container */
+.ad-panel-horizontal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    overflow: hidden;
+    width: 100vw; /* Using viewport width to ensure full-screen fit */
+    position: relative;
+    height: 180px;
+}
+
+/* Updated slider container */
+.ad-slider-full-width {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+    width: 100%;
+    height: 100%;
+}
+
+/* Each slide takes up the full viewport width */
+.ad-slide-full-width {
+    flex-shrink: 0;
+    width: 100vw; /* Each slide is now viewport-wide */
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.ad-slide-full-width img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+@media (max-width: 480px) {
+    .ad-panel-horizontal {
+        height: 120px;
+    }
+}
+</style>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
+    authDomain: "villagefood-19f8a.firebaseapp.com",
+    projectId: "villagefood-19f8a",
+    storageBucket: "villagefood-19f8a.appspot.com",
+    messagingSenderId: "241737075683",
+    appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
+    measurementId: "G-1HH6F13ECS"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const adDocRef = doc(db, "advertisements", "currentAd");
+const slider = document.querySelector('.ad-slider-full-width');
+
+let adImages = [];
+let currentIndex = 0;
+let sliderInterval;
+
+function renderSlides() {
+    slider.innerHTML = "";
+    if (adImages.length === 0) return;
+
+    adImages.forEach(url => {
+        const slide = document.createElement("div");
+        slide.className = "ad-slide-full-width";
+
+        const img = document.createElement("img");
+        img.src = url;
+        img.alt = "Ad";
+
+        slide.appendChild(img);
+        slider.appendChild(slide);
+    });
+
+    currentIndex = 0;
+    slider.style.transform = `translateX(0)`;
+}
+
+function showNextSlide() {
+    if (adImages.length === 0) return;
+    currentIndex = (currentIndex + 1) % adImages.length;
+    slider.style.transform = `translateX(-${currentIndex * 100}vw)`;
+}
+
+function startSlider() {
+    if (sliderInterval) clearInterval(sliderInterval);
+    sliderInterval = setInterval(showNextSlide, 3000);
+}
+
+onSnapshot(adDocRef, (docSnap) => {
+    if (!docSnap.exists()) return;
+    const data = docSnap.data();
+    adImages = (data.images || []).filter(url => url);
+    renderSlides();
+    startSlider();
+});
+</script>
+
 
         <div class="main-content">
             <div id="dashboard-view" class="view active">
@@ -1196,15 +1308,14 @@
   import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
   const firebaseConfig = {
-      apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
-      authDomain: "villagefood-19f8a.firebaseapp.com",
-      projectId: "villagefood-19f8a",
-      storageBucket: "villagefood-19f8a.appspot.com",
-      messagingSenderId: "241737075683",
-      appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
-      measurementId: "G-1HH6F13ECS"
-    };
-
+    apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
+    authDomain: "villagefood-19f8a.firebaseapp.com",
+    projectId: "villagefood-19f8a",
+    storageBucket: "villagefood-19f8a.appspot.com",
+    messagingSenderId: "241737075683",
+    appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
+    measurementId: "G-1HH6F13ECS"
+  };
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -1213,6 +1324,7 @@
 
   let adImages = [];
   let currentAdIndex = 0;
+  let autoSlideInterval;
 
   const modal = document.getElementById("ad-modal");
   const modalImage = document.getElementById("ad-modal-image");
@@ -1241,15 +1353,28 @@
     showAdImage(currentAdIndex);
   }
 
+  function startAutoSlide() {
+    stopAutoSlide();
+    if (adImages.length > 1) {
+      autoSlideInterval = setInterval(nextAdImage, 4000); // 4 sec change
+    }
+  }
+
+  function stopAutoSlide() {
+    if (autoSlideInterval) clearInterval(autoSlideInterval);
+  }
+
   function openAdModal() {
     if (adImages.length > 0 || modalMessage.textContent) {
       modal.style.display = "flex";
       showAdImage(currentAdIndex);
+      startAutoSlide();
     }
   }
 
   function closeAdModal() {
     modal.style.display = "none";
+    stopAutoSlide();
   }
 
   window.nextAdImage = nextAdImage;
@@ -1274,12 +1399,16 @@
     currentAdIndex = 0;
 
     if (adImages.length > 0) {
-      modal.style.display = "flex"; // show modal immediately if you want
+      modal.style.display = "flex"; // auto-show when new ads arrive
       showAdImage(currentAdIndex);
+      startAutoSlide();
     } else {
       modalImage.style.display = "none";
+      stopAutoSlide();
     }
   });
+</script>
+
 
 function viewInvoice(invoiceNo) {
     const invoice = invoices.find(inv => inv.invoiceNo == invoiceNo);
