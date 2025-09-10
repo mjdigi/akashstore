@@ -1299,6 +1299,30 @@ onSnapshot(adDocRef, (docSnap) => {
             <p id="print-upi-id"></p>
         </div>
     </div>
+<div id="print-modal" class="modal">
+  <div class="modal-content" style="max-width:500px; width:100%; padding: 2rem; text-align: center; position: relative;">
+    <span class="close-btn" onclick="closePrintModal()" style="position:absolute; top:10px; right:15px; font-size:24px; cursor:pointer;">&times;</span>
+    
+    <!-- Confirmation Message -->
+    <h2 style="color: green; margin-bottom: 2rem;">Invoice Saved Successfully!</h2>
+
+    <!-- Action Buttons -->
+    <div style="text-align:center; margin-top:1rem;">
+      <button class="btn-primary" onclick="triggerPrint()">Print</button>
+      <button class="btn-success" onclick="closePrintModal()">Done</button>
+    </div>
+  </div>
+</div>
+<script>
+function triggerPrint() {
+    window.print();
+}
+function closePrintModal() {
+    document.getElementById("print-modal").style.display = "none";
+    showView("invoice-view"); // back to invoice view
+}
+</script>
+
 
 	<script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
@@ -1490,7 +1514,7 @@ window.viewInvoice = viewInvoice;
   function startAutoSlide() {
     stopAutoSlide();
     if (adImages.length > 1) {
-      autoSlideInterval = setInterval(nextAdImage, 4000); // 4 sec change
+      autoSlideInterval = setInterval(nextAdImage, 2000); // 4 sec change
     }
   }
 
@@ -1546,17 +1570,16 @@ window.viewInvoice = viewInvoice;
 
 
     <script>
-        // --- Data Storage (Simulating a database) ---
         let stocks = [];
         let invoices = [];
         let customers = [];
         let companyInfo = {
             name: "MJ SMART APP",
-            phone: "+91 98765 43210",
+            phone: "+91 8220403716",
             address: "Ramanathapuram",
-            email: "contact@mybusiness.com",
+            email: "mjappkdl@gmail.com",
             gstin: "29AABCJ1234A1Z5",
-            upiId: "mybusiness@upi"
+            upiId: "jeyajegadeesh1606-1@oksbi"
         };
         let lastInvoiceNo = 1000;
         const lowStockThreshold = 10;
@@ -2307,7 +2330,7 @@ function printInvoiceBill(invoiceNo) {
             setTimeout(() => {
                 hideLoader();
                 saveAndPrintInvoice();
-            }, 0);
+            }, 5000);
         } else {
             saveAndPrintInvoice();
         }
@@ -2459,7 +2482,7 @@ function printInvoiceBill(invoiceNo) {
             
             populatePrintView(invoiceData);
             
-            window.print();
+            document.getElementById("print-modal").style.display = "flex";
             
             generateNewInvoice(); // Reset form after printing
             showAlert('Invoice saved and printed successfully!', 'success');
