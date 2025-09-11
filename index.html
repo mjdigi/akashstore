@@ -837,19 +837,54 @@ onSnapshot(adDocRef, (docSnap) => {
     <p id="storage-size" style="margin-top:0.5rem; font-size:0.9rem; color:#555;">0 KB / 5 MB</p>
 </div>
 
-<div class="dashboard-card" onclick="openAdModal()" style="cursor: pointer;">
-    <span class="card-icon">📢</span>
-    <div class="card-title">New offers</div>
-    <div class="card-value" id="ad-status">Loading...</div>
-    <div style="width: 100%; margin-top: 1rem;">
-        <div style="background: #eee; border-radius: 8px; height: 12px; overflow: hidden;">
-            <div id="ad-bar" style="background: var(--primary-color); width: 0%; height: 100%;"></div>
-        </div>
+<div class="dashboard-card" style="cursor: pointer;">
+  <span class="card-icon">📢</span>
+  <div class="card-title">New offers</div>
+  <div class="card-value" id="ad-status">Loading...</div>
+
+  <!-- Message -->
+  <p id="ad-message" style="margin-top:0.5rem; font-size:0.9rem; color:#555;">
+    Coming soon...
+  </p>
+
+  <!-- Realistic Switch -->
+  <div style="margin-top:0.8rem; text-align:center;">
+    <div id="adToggleCard" class="toggle-switch" onclick="toggleAdStatusCard()">
+      <div class="switch-handle"></div>
     </div>
-    <p id="ad-message" style="margin-top:0.5rem; font-size:0.9rem; color:#555;">
-        Coming soon...
-    </p>
+  </div>
 </div>
+
+<style>
+/* Realistic toggle */
+.toggle-switch {
+  width: 60px;
+  height: 30px;
+  background: #bbb;
+  border-radius: 50px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  display: inline-block;
+}
+.toggle-switch.active {
+  background: #4caf50;
+}
+.switch-handle {
+  width: 26px;
+  height: 26px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.toggle-switch.active .switch-handle {
+  transform: translateX(30px);
+}
+</style>
 
 
                     <div class="dashboard-card today-sales-card">
@@ -1213,6 +1248,7 @@ onSnapshot(adDocRef, (docSnap) => {
     <button class="btn-success" onclick="processUpdatePayment()">Save Payment</button>
   </div>
 </div>
+
 <div id="ad-modal" class="modal" style="background: rgba(0,0,0,0.9);">
   <div class="modal-content" 
        style="width:100%; height:100%; max-width:none; border-radius:0; 
@@ -1326,18 +1362,17 @@ function closePrintModal() {
 
 	<script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+  import { getFirestore, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
 
   const firebaseConfig = {
-      apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
-      authDomain: "villagefood-19f8a.firebaseapp.com",
-      projectId: "villagefood-19f8a",
-      storageBucket: "villagefood-19f8a.appspot.com",
-      messagingSenderId: "241737075683",
-      appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
-      measurementId: "G-1HH6F13ECS"
-    };
-
+    apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
+    authDomain: "villagefood-19f8a.firebaseapp.com",
+    projectId: "villagefood-19f8a",
+    storageBucket: "villagefood-19f8a.appspot.com",
+    messagingSenderId: "241737075683",
+    appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
+    measurementId: "G-1HH6F13ECS"
+  };
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -1346,6 +1381,8 @@ function closePrintModal() {
 
   let adImages = [];
   let currentAdIndex = 0;
+  let autoSlideInterval;
+  let adsEnabled = true; // default
 
   const modal = document.getElementById("ad-modal");
   const modalImage = document.getElementById("ad-modal-image");
@@ -1353,11 +1390,15 @@ function closePrintModal() {
   const slideIndicator = document.getElementById("ad-slide-indicator");
 
   const adStatusEl = document.getElementById("ad-status");
-  const adBarEl = document.getElementById("ad-bar");
   const adMessageEl = document.getElementById("ad-message");
 
+  // 🔹 Switch element
+  const adToggle = document.getElementById("adToggleCard");
+
+  // --- Image Controls ---
   function showAdImage(index) {
     if (adImages.length === 0) return;
+    modalImage.style.display = "block";
     modalImage.src = adImages[index];
     slideIndicator.textContent = `${index + 1} / ${adImages.length}`;
   }
@@ -1374,15 +1415,29 @@ function closePrintModal() {
     showAdImage(currentAdIndex);
   }
 
+  function startAutoSlide() {
+    stopAutoSlide();
+    if (adImages.length > 1) {
+      autoSlideInterval = setInterval(nextAdImage, 4000);
+    }
+  }
+
+  function stopAutoSlide() {
+    if (autoSlideInterval) clearInterval(autoSlideInterval);
+  }
+
   function openAdModal() {
+    if (!adsEnabled) return; // 🚫 Block modal if OFF
     if (adImages.length > 0 || modalMessage.textContent) {
       modal.style.display = "flex";
       showAdImage(currentAdIndex);
+      startAutoSlide();
     }
   }
 
   function closeAdModal() {
     modal.style.display = "none";
+    stopAutoSlide();
   }
 
   window.nextAdImage = nextAdImage;
@@ -1390,29 +1445,67 @@ function closePrintModal() {
   window.closeAdModal = closeAdModal;
   window.openAdModal = openAdModal;
 
-  // Listen to Firestore for real-time updates
+  // --- Toggle switch function ---
+  async function toggleAdStatusCard() {
+    const isOn = !adToggle.classList.contains("active");
+
+    adToggle.classList.toggle("active", isOn);
+    adStatusEl.textContent = isOn ? "Enabled" : "Disabled";
+    adsEnabled = isOn;
+
+    // If turned OFF → also close modal immediately
+    if (!adsEnabled) {
+      closeAdModal();
+    }
+
+    try {
+      await updateDoc(adDoc, { adsEnabled: isOn });
+      console.log("Ad toggle saved:", isOn);
+    } catch (err) {
+      console.error("Error saving toggle:", err);
+    }
+  }
+
+  window.toggleAdStatusCard = toggleAdStatusCard;
+
+  // --- Firestore Sync ---
   onSnapshot(adDoc, (docSnap) => {
     if (!docSnap.exists()) return;
 
     const data = docSnap.data();
 
     // Update dashboard card
-    adStatusEl.textContent = data.status || "N/A";
-    adBarEl.style.width = (data.progress || 0) + "%";
+    adStatusEl.textContent = data.adsEnabled ? "Enabled" : "Disabled";
     adMessageEl.textContent = data.message || "No message";
 
-    // Update modal
+    // Update modal message/images
     modalMessage.textContent = data.message || "";
     adImages = data.images || [];
     currentAdIndex = 0;
 
-    if (adImages.length > 0) {
-      modal.style.display = "flex"; // show modal immediately if you want
+    // 🔹 Sync switch state
+    if (typeof data.adsEnabled !== "undefined") {
+      adsEnabled = data.adsEnabled;
+      adToggle.classList.toggle("active", adsEnabled);
+
+      // If ads disabled → ensure modal is closed
+      if (!adsEnabled) {
+        closeAdModal();
+        return;
+      }
+    }
+
+    // Only show popup if enabled
+    if (adsEnabled && adImages.length > 0) {
+      modal.style.display = "flex";
       showAdImage(currentAdIndex);
+      startAutoSlide();
     } else {
       modalImage.style.display = "none";
+      stopAutoSlide();
     }
   });
+
 
 function viewInvoice(invoiceNo) {
     const invoice = invoices.find(inv => inv.invoiceNo == invoiceNo);
@@ -1461,111 +1554,6 @@ window.viewInvoice = viewInvoice;
 
 </script>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
-    authDomain: "villagefood-19f8a.firebaseapp.com",
-    projectId: "villagefood-19f8a",
-    storageBucket: "villagefood-19f8a.appspot.com",
-    messagingSenderId: "241737075683",
-    appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
-    measurementId: "G-1HH6F13ECS"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getFirestore(app);
-
-  const adDoc = doc(db, "advertisements", "currentAd");
-
-  let adImages = [];
-  let currentAdIndex = 0;
-  let autoSlideInterval;
-
-  const modal = document.getElementById("ad-modal");
-  const modalImage = document.getElementById("ad-modal-image");
-  const modalMessage = document.getElementById("ad-modal-message");
-  const slideIndicator = document.getElementById("ad-slide-indicator");
-
-  const adStatusEl = document.getElementById("ad-status");
-  const adBarEl = document.getElementById("ad-bar");
-  const adMessageEl = document.getElementById("ad-message");
-
-  function showAdImage(index) {
-    if (adImages.length === 0) return;
-    modalImage.src = adImages[index];
-    slideIndicator.textContent = `${index + 1} / ${adImages.length}`;
-  }
-
-  function nextAdImage() {
-    if (adImages.length === 0) return;
-    currentAdIndex = (currentAdIndex + 1) % adImages.length;
-    showAdImage(currentAdIndex);
-  }
-
-  function prevAdImage() {
-    if (adImages.length === 0) return;
-    currentAdIndex = (currentAdIndex - 1 + adImages.length) % adImages.length;
-    showAdImage(currentAdIndex);
-  }
-
-  function startAutoSlide() {
-    stopAutoSlide();
-    if (adImages.length > 1) {
-      autoSlideInterval = setInterval(nextAdImage, 2000); // 4 sec change
-    }
-  }
-
-  function stopAutoSlide() {
-    if (autoSlideInterval) clearInterval(autoSlideInterval);
-  }
-
-  function openAdModal() {
-    if (adImages.length > 0 || modalMessage.textContent) {
-      modal.style.display = "flex";
-      showAdImage(currentAdIndex);
-      startAutoSlide();
-    }
-  }
-
-  function closeAdModal() {
-    modal.style.display = "none";
-    stopAutoSlide();
-  }
-
-  window.nextAdImage = nextAdImage;
-  window.prevAdImage = prevAdImage;
-  window.closeAdModal = closeAdModal;
-  window.openAdModal = openAdModal;
-
-  // Listen to Firestore for real-time updates
-  onSnapshot(adDoc, (docSnap) => {
-    if (!docSnap.exists()) return;
-
-    const data = docSnap.data();
-
-    // Update dashboard card
-    adStatusEl.textContent = data.status || "N/A";
-    adBarEl.style.width = (data.progress || 0) + "%";
-    adMessageEl.textContent = data.message || "No message";
-
-    // Update modal
-    modalMessage.textContent = data.message || "";
-    adImages = data.images || [];
-    currentAdIndex = 0;
-
-    if (adImages.length > 0) {
-      modal.style.display = "flex"; // auto-show when new ads arrive
-      showAdImage(currentAdIndex);
-      startAutoSlide();
-    } else {
-      modalImage.style.display = "none";
-      stopAutoSlide();
-    }
-  });
-</script>
 
 
 
