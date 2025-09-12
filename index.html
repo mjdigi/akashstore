@@ -611,7 +611,35 @@
                 font-size: 0.8rem;
             }
         }
-        
+
+	/* Realistic toggle */
+.toggle-switch {
+  width: 60px;
+  height: 30px;
+  background: #bbb;
+  border-radius: 50px;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  display: inline-block;
+}
+.toggle-switch.active {
+  background: #4caf50;
+}
+.switch-handle {
+  width: 26px;
+  height: 26px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.toggle-switch.active .switch-handle {
+  transform: translateX(30px);
+}        
         /* Print view specific styles */
         @media print {
             body > *:not(.print-view) {
@@ -730,6 +758,7 @@ const db = getFirestore(app);
 
 const adDocRef = doc(db, "advertisements", "currentAd");
 const slider = document.querySelector('.ad-slider-full-width');
+const adPanel = document.querySelector('.ad-panel-horizontal');
 
 let adImages = [];
 let currentIndex = 0;
@@ -737,7 +766,13 @@ let sliderInterval;
 
 function renderSlides() {
     slider.innerHTML = "";
-    if (adImages.length === 0) return;
+
+    if (adImages.length === 0) {
+        adPanel.style.display = "none"; // Hide panel when no ads
+        return;
+    }
+
+    adPanel.style.display = "flex"; // Show panel when ads exist
 
     adImages.forEach(url => {
         const slide = document.createElement("div");
@@ -767,7 +802,10 @@ function startSlider() {
 }
 
 onSnapshot(adDocRef, (docSnap) => {
-    if (!docSnap.exists()) return;
+    if (!docSnap.exists()) {
+        adPanel.style.display = "none"; // Hide if doc not found
+        return;
+    }
     const data = docSnap.data();
     adImages = (data.images || []).filter(url => url);
     renderSlides();
@@ -777,7 +815,24 @@ onSnapshot(adDocRef, (docSnap) => {
 
     <div class="container">
         <header>
-            <h2>MJ SMART APPS</h2>
+<!-- Import Premium Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;900&family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+
+<div class="flex flex-col items-center justify-center text-center py-6">
+  <!-- Store Name -->
+  <h2 class="text-6xl sm:text-7xl md:text-8xl font-extrabold uppercase drop-shadow-2xl"
+      style="font-family: 'Montserrat', sans-serif; letter-spacing: 15px;">
+    AKASH STORE
+  </h2>
+
+  <!-- Tagline -->
+  <span class="mt-3 text-lg sm:text-xl md:text-2xl font-bold tracking-widest uppercase"
+      style="font-family: 'Playfair Display', serif; letter-spacing: 3px; color: #E0E0E0;">
+  DESIGNED BY MJ SMART APPS
+</span>
+
+</div>
+
             <nav>
                 <a href="#" class="nav-link active" data-view="dashboard-view">
                     <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3L2 12h3v8z" /></svg>
@@ -854,38 +909,6 @@ onSnapshot(adDocRef, (docSnap) => {
     </div>
   </div>
 </div>
-
-<style>
-/* Realistic toggle */
-.toggle-switch {
-  width: 60px;
-  height: 30px;
-  background: #bbb;
-  border-radius: 50px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.3s ease;
-  display: inline-block;
-}
-.toggle-switch.active {
-  background: #4caf50;
-}
-.switch-handle {
-  width: 26px;
-  height: 26px;
-  background: white;
-  border-radius: 50%;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  transition: transform 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-}
-.toggle-switch.active .switch-handle {
-  transform: translateX(30px);
-}
-</style>
-
 
                     <div class="dashboard-card today-sales-card">
                         <div class="today-sales-item">
@@ -1248,7 +1271,6 @@ onSnapshot(adDocRef, (docSnap) => {
     <button class="btn-success" onclick="processUpdatePayment()">Save Payment</button>
   </div>
 </div>
-
 <div id="ad-modal" class="modal" style="background: rgba(0,0,0,0.9);">
   <div class="modal-content" 
        style="width:100%; height:100%; max-width:none; border-radius:0; 
@@ -1506,7 +1528,6 @@ function closePrintModal() {
     }
   });
 
-
 function viewInvoice(invoiceNo) {
     const invoice = invoices.find(inv => inv.invoiceNo == invoiceNo);
     if (!invoice) {
@@ -1554,6 +1575,111 @@ window.viewInvoice = viewInvoice;
 
 </script>
 
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+  import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCOfYScRtu_r2p1MlDVGT_BSnR4VWe1kIU",
+    authDomain: "villagefood-19f8a.firebaseapp.com",
+    projectId: "villagefood-19f8a",
+    storageBucket: "villagefood-19f8a.appspot.com",
+    messagingSenderId: "241737075683",
+    appId: "1:241737075683:web:e3a7351cdbdbf77116aed6",
+    measurementId: "G-1HH6F13ECS"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const adDoc = doc(db, "advertisements", "currentAd");
+
+  let adImages = [];
+  let currentAdIndex = 0;
+  let autoSlideInterval;
+
+  const modal = document.getElementById("ad-modal");
+  const modalImage = document.getElementById("ad-modal-image");
+  const modalMessage = document.getElementById("ad-modal-message");
+  const slideIndicator = document.getElementById("ad-slide-indicator");
+
+  const adStatusEl = document.getElementById("ad-status");
+  const adBarEl = document.getElementById("ad-bar");
+  const adMessageEl = document.getElementById("ad-message");
+
+  function showAdImage(index) {
+    if (adImages.length === 0) return;
+    modalImage.src = adImages[index];
+    slideIndicator.textContent = `${index + 1} / ${adImages.length}`;
+  }
+
+  function nextAdImage() {
+    if (adImages.length === 0) return;
+    currentAdIndex = (currentAdIndex + 1) % adImages.length;
+    showAdImage(currentAdIndex);
+  }
+
+  function prevAdImage() {
+    if (adImages.length === 0) return;
+    currentAdIndex = (currentAdIndex - 1 + adImages.length) % adImages.length;
+    showAdImage(currentAdIndex);
+  }
+
+  function startAutoSlide() {
+    stopAutoSlide();
+    if (adImages.length > 1) {
+      autoSlideInterval = setInterval(nextAdImage, 2000); // 4 sec change
+    }
+  }
+
+  function stopAutoSlide() {
+    if (autoSlideInterval) clearInterval(autoSlideInterval);
+  }
+
+  function openAdModal() {
+    if (adImages.length > 0 || modalMessage.textContent) {
+      modal.style.display = "flex";
+      showAdImage(currentAdIndex);
+      startAutoSlide();
+    }
+  }
+
+  function closeAdModal() {
+    modal.style.display = "none";
+    stopAutoSlide();
+  }
+
+  window.nextAdImage = nextAdImage;
+  window.prevAdImage = prevAdImage;
+  window.closeAdModal = closeAdModal;
+  window.openAdModal = openAdModal;
+
+  // Listen to Firestore for real-time updates
+  onSnapshot(adDoc, (docSnap) => {
+    if (!docSnap.exists()) return;
+
+    const data = docSnap.data();
+
+    // Update dashboard card
+    adStatusEl.textContent = data.status || "Ads";
+    adBarEl.style.width = (data.progress || 0) + "%";
+    adMessageEl.textContent = data.message || "No message";
+
+    // Update modal
+    modalMessage.textContent = data.message || "";
+    adImages = data.images || [];
+    currentAdIndex = 0;
+
+    if (adImages.length > 0) {
+      modal.style.display = "flex"; // auto-show when new ads arrive
+      showAdImage(currentAdIndex);
+      startAutoSlide();
+    } else {
+      modalImage.style.display = "none";
+      stopAutoSlide();
+    }
+  });
+</script>
 
 
 
